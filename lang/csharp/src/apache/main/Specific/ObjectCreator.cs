@@ -116,14 +116,13 @@ namespace Avro.Specific
             var isNullable = false;
 
             const string listPrefix = "IList<";
+            const string nullablePrefix = "Nullable<";
             if (name.StartsWith(listPrefix) && name.EndsWith(">"))
             {
                 name = name.Substring(listPrefix.Length, name.Length - listPrefix.Length - 1);
                 isList = true;
             }
-
-            const string nullablePrefix = "Nullable<";
-            if (name.StartsWith(nullablePrefix) && name.EndsWith(">"))
+            else if (name.StartsWith(nullablePrefix) && name.EndsWith(">"))
             {
                 name = name.Substring(nullablePrefix.Length, name.Length - nullablePrefix.Length - 1);
                 isNullable = true;
