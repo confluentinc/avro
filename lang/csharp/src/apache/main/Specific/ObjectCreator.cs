@@ -110,16 +110,26 @@ namespace Avro.Specific
         /// <param name="name">the object type to locate</param>
         /// <param name="throwError">whether or not to throw an error if the type wasn't found</param>
         /// <returns>the object type, or <c>null</c> if not found</returns>
-        private Type FindType(string name,bool throwError)
+        private Type FindType(string name, bool throwError)
         {
-            Type type;
+            var isList = false;
+            var isNullable = false;
 
-            // Modify provided type to ensure it can be discovered.
-            // This is mainly for Generics, and Nullables.
-            name = name.Replace("Nullable", "Nullable`1");
-            name = name.Replace("IList", "System.Collections.Generic.IList`1");
-            name = name.Replace("<", "[");
-            name = name.Replace(">", "]");
+            const string listPrefix = "IList<";
+            if (name.StartsWith(listPrefix) && name.EndsWith(">"))
+            {
+                name = name.Substring(listPrefix.Length, name.Length - listPrefix.Length - 1);
+                isList = true;
+            }
+
+            const string nullablePrefix = "Nullable<";
+            if (name.StartsWith(nullablePrefix) && name.EndsWith(">"))
+            {
+                name = name.Substring(nullablePrefix.Length, name.Length - nullablePrefix.Length - 1);
+                isNullable = true;
+            }
+
+            Type type;
 
             if (diffAssembly)
             {
@@ -165,6 +175,16 @@ namespace Avro.Specific
             if (null == type && throwError)
             {
                 throw new AvroException("Unable to find type " + name + " in all loaded assemblies");
+            }
+
+            if (isList)
+            {
+                return typeof(IList<>).MakeGenericType(type);
+            }
+
+            if (isNullable)
+            {
+                return typeof(Nullable<>).MakeGenericType(type);
             }
 
             return type;
