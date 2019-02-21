@@ -25,7 +25,7 @@
     <PackageId>Confluent.Apache.Avro.test</PackageId>
     <Title>Confluent.Apache.Avro.test</Title>
     <AssemblyName>Confluent.Apache.Avro.test</AssemblyName>
-    <VersionPrefix>1.7.7.5</VersionPrefix>
+    <VersionPrefix>1.7.7.6</VersionPrefix>
     <TargetFrameworks>net461</TargetFrameworks>
   </PropertyGroup>
 
