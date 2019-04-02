@@ -132,6 +132,9 @@ namespace Avro.Generic
                 case Schema.Type.Union:
                     WriteUnion(schema as UnionSchema, value, encoder);
                     break;
+                case Schema.Type.Logical:
+                    WriteLogical(schema as LogicalSchema, value, encoder);
+                    break;
                 default:
                     error(schema, value);
                     break;
@@ -367,6 +370,18 @@ namespace Avro.Generic
                 if (Matches(us[i], obj)) return i;
             }
             throw new AvroException("Cannot find a match for " + obj.GetType() + " in " + us);
+        }
+
+        /// <summary>
+        /// Serializes a logical value object by using the underlying logical type to convert the value
+        /// to its base value.
+        /// </summary>
+        /// <param name="ls">The schema for serialization</param>
+        /// <param name="value">The value to be serialized</param>
+        /// <param name="encoder">The encoder for serialization</param>
+        protected virtual void WriteLogical(LogicalSchema ls, object value, Encoder encoder)
+        {
+            Write(ls.BaseSchema, ls.LogicalType.ConvertToBaseValue(value, ls), encoder);
         }
 
         /// <summary>
