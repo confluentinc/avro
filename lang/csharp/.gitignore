@@ -51,5 +51,9 @@
 #Test results
 TestResult.xml
 
+#Build outputs
+bin
+obj
+
 #MacOS
 .DS_Store
