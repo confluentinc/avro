@@ -454,6 +454,9 @@ namespace Avro.Generic
                         lookup[i] = GetSkip( unionSchema[i] );
                     }
                     return d => lookup[d.ReadUnionIndex()](d);
+                case Schema.Type.Logical:
+                    var logicalSchema = (LogicalSchema)writerSchema;
+                    return GetSkip(logicalSchema.BaseSchema);
                 default:
                     throw new AvroException("Unknown schema type: " + writerSchema);
             }

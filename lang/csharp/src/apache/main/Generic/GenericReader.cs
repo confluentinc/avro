@@ -634,6 +634,9 @@ namespace Avro.Generic
                 case Schema.Type.Union:
                     Skip((writerSchema as UnionSchema)[d.ReadUnionIndex()], d);
                     break;
+                case Schema.Type.Logical:
+                    Skip((writerSchema as LogicalSchema).BaseSchema, d);
+                    break;
                 default:
                     throw new AvroException("Unknown schema type: " + writerSchema);
             }
