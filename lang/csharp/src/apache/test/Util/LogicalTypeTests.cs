@@ -25,6 +25,35 @@ namespace Avro.Test
     [TestFixture]
     class LogicalTypeTests
     {
+        [TestCase("1234.56")]
+        [TestCase("-1234.56")]
+        [TestCase("123456789123456789.56")]
+        [TestCase("-123456789123456789.56")]
+        [TestCase("000000000000000001.01")]
+        [TestCase("-000000000000000001.01")]
+        public void TestDecimal(string s)
+        {
+            var schema = (LogicalSchema)Schema.Parse("{\"type\": \"bytes\", \"logicalType\": \"decimal\", \"precision\": 4, \"scale\": 2 }");
+
+            var avroDecimal = new Avro.Util.Decimal();
+            var decimalVal = decimal.Parse(s);
+
+            var convertedDecimalVal = (decimal)avroDecimal.ConvertToLogicalValue(avroDecimal.ConvertToBaseValue(decimalVal, schema), schema);
+
+            Assert.AreEqual(decimalVal, convertedDecimalVal);
+        }
+
+        [TestCase]
+        public void TestDecimalOutOfRangeException()
+        {
+            var schema = (LogicalSchema)Schema.Parse("{\"type\": \"bytes\", \"logicalType\": \"decimal\", \"precision\": 4, \"scale\": 2 }");
+
+            var avroDecimal = new Avro.Util.Decimal();
+            var decimalVal = 1234.567M; // scale of 3 should throw ArgumentOutOfRangeException
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => avroDecimal.ConvertToBaseValue(decimalVal, schema));
+        }
+
         [TestCase("01/01/2019")]
         [TestCase("05/05/2019")]
         [TestCase("05/05/2019 00:00:00Z")]

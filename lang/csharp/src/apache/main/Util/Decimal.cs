@@ -16,6 +16,7 @@
 * limitations under the License.
 */
 using System;
+using System.Numerics;
 using Avro.Generic;
 
 namespace Avro.Util
@@ -44,6 +45,21 @@ namespace Avro.Util
         {
             if (Schema.Type.Bytes != schema.BaseSchema.Tag && Schema.Type.Fixed != schema.BaseSchema.Tag)
                 throw new AvroTypeException("'decimal' can only be used with an underlying bytes or fixed type");
+
+            var precisionVal = schema.GetProperty("precision");
+
+            if (string.IsNullOrEmpty(precisionVal))
+                throw new AvroTypeException("'decimal' requires a 'precision' property");
+
+            var precision = int.Parse(precisionVal);
+
+            if (precision <= 0)
+                throw new AvroTypeException("'decimal' requires a 'precision' property that is greater than zero");
+
+            var scale = GetLogicalScale(schema);
+
+            if (scale < 0 || scale > precision)
+                throw new AvroTypeException("'decimal' requires a 'scale' property that is zero or less than or equal to 'precision'");
         }
 
         /// <summary>
@@ -54,29 +70,18 @@ namespace Avro.Util
         /// <returns>An object representing the encoded value of the base type.</returns>        
         public override object ConvertToBaseValue(object logicalValue, LogicalSchema schema)
         {
-            var val = (decimal)logicalValue;
-            var buffer = new byte[16];
-            var valBits = decimal.GetBits(val);
+            var decimalValue = (decimal)logicalValue;
+            var unscaledInt = new BigInteger(GetUnscaledDecimalValue(decimalValue, out int scale));
 
-            buffer[0] = (byte)valBits[0];
-            buffer[1] = (byte)(valBits[0] >> 8);
-            buffer[2] = (byte)(valBits[0] >> 16);
-            buffer[3] = (byte)(valBits[0] >> 24);
+            if (scale != GetLogicalScale(schema))
+                throw new ArgumentOutOfRangeException("logicalValue", $"The decimal value has a scale of {scale} which cannot be encoded against a logical 'decimal' with a scale of {GetLogicalScale(schema)}");
 
-            buffer[4] = (byte)valBits[1];
-            buffer[5] = (byte)(valBits[1] >> 8);
-            buffer[6] = (byte)(valBits[1] >> 16);
-            buffer[7] = (byte)(valBits[1] >> 24);
+            if (decimalValue < 0)
+                unscaledInt = BigInteger.Negate(unscaledInt);
 
-            buffer[8] = (byte)valBits[2];
-            buffer[9] = (byte)(valBits[2] >> 8);
-            buffer[10] = (byte)(valBits[2] >> 16);
-            buffer[11] = (byte)(valBits[2] >> 24);
+            var buffer = unscaledInt.ToByteArray();
 
-            buffer[12] = (byte)valBits[3];
-            buffer[13] = (byte)(valBits[3] >> 8);
-            buffer[14] = (byte)(valBits[3] >> 16);
-            buffer[15] = (byte)(valBits[3] >> 24);
+            Array.Reverse(buffer); // Make the sequence of bytes big-endian
 
             return Schema.Type.Bytes == schema.BaseSchema.Tag
                 ? (object)buffer
@@ -94,14 +99,28 @@ namespace Avro.Util
             var buffer = Schema.Type.Bytes == schema.BaseSchema.Tag
                 ? (byte[])baseValue
                 : ((GenericFixed)baseValue).Value;
-            var valBits = new int[4];
 
-            valBits[0] = buffer[0] | (buffer[1] << 8) | (buffer[2] << 16) | (buffer[3] << 24);
-            valBits[1] = buffer[4] | (buffer[5] << 8) | (buffer[6] << 16) | (buffer[7] << 24);
-            valBits[2] = buffer[8] | (buffer[9] << 8) | (buffer[10] << 16) | (buffer[11] << 24);
-            valBits[3] = buffer[12] | (buffer[13] << 8) | (buffer[14] << 16) | (buffer[15] << 24);
+            Array.Reverse(buffer); // Make the sequence of bytes little-endian
 
-            return new decimal(valBits);
+            var unscaledInt = new BigInteger(buffer);
+            var isNegative = unscaledInt < 0;
+
+            var absUnscaledInt = BigInteger.Abs(unscaledInt);
+
+            buffer = absUnscaledInt.ToByteArray();
+
+            var paddedBuffer = new byte[12];
+
+            Buffer.BlockCopy(buffer, 0, paddedBuffer, 0, Math.Min(buffer.Length, 12));
+
+            var valBits = new int[]
+            {
+                BitConverter.ToInt32(paddedBuffer, 0),
+                BitConverter.ToInt32(paddedBuffer, 4),
+                BitConverter.ToInt32(paddedBuffer, 8)
+            };
+
+            return new decimal(valBits[0], valBits[1], valBits[2], isNegative, (byte)GetLogicalScale(schema));
         }
 
         /// <summary>
@@ -121,6 +140,38 @@ namespace Avro.Util
         public override bool IsInstanceOfLogicalType(object logicalValue)
         {
             return logicalValue is decimal;
+        }
+
+        private static int GetLogicalScale(LogicalSchema schema)
+        {
+            var scaleVal = schema.GetProperty("scale");
+
+            return string.IsNullOrEmpty(scaleVal) ? 0 : int.Parse(scaleVal);
+        }
+
+        private static byte[] GetUnscaledDecimalValue(decimal value, out int scale)
+        {
+            var buffer = new byte[12];
+            var valBits = decimal.GetBits(value);
+
+            buffer[0] = (byte)valBits[0];
+            buffer[1] = (byte)(valBits[0] >> 8);
+            buffer[2] = (byte)(valBits[0] >> 16);
+            buffer[3] = (byte)(valBits[0] >> 24);
+
+            buffer[4] = (byte)valBits[1];
+            buffer[5] = (byte)(valBits[1] >> 8);
+            buffer[6] = (byte)(valBits[1] >> 16);
+            buffer[7] = (byte)(valBits[1] >> 24);
+
+            buffer[8] = (byte)valBits[2];
+            buffer[9] = (byte)(valBits[2] >> 8);
+            buffer[10] = (byte)(valBits[2] >> 16);
+            buffer[11] = (byte)(valBits[2] >> 24);
+
+            scale = (int)((valBits[3] & ~Int32.MinValue) >> 16);
+
+            return buffer;
         }
     }
 }
