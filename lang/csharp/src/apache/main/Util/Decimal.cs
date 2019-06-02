@@ -109,16 +109,16 @@ namespace Avro.Util
 
             buffer = absUnscaledInt.ToByteArray();
 
-            var paddedBuffer = new byte[12];
+            Console.WriteLine($">> {buffer.Length}");
 
-            Buffer.BlockCopy(buffer, 0, paddedBuffer, 0, Math.Min(buffer.Length, 12));
+            if (buffer.Length > 13)
+                throw new AvroException("Unable to create 'decimal' value. The buffer being read is too large.");
 
-            var valBits = new int[]
-            {
-                BitConverter.ToInt32(paddedBuffer, 0),
-                BitConverter.ToInt32(paddedBuffer, 4),
-                BitConverter.ToInt32(paddedBuffer, 8)
-            };
+            var paddedBuffer = new byte[13];
+
+            Buffer.BlockCopy(buffer, 0, paddedBuffer, 0, Math.Min(buffer.Length, 13));
+
+            var valBits = GetDecimalComponents(paddedBuffer);
 
             return new decimal(valBits[0], valBits[1], valBits[2], isNegative, (byte)GetLogicalScale(schema));
         }
@@ -151,7 +151,7 @@ namespace Avro.Util
 
         private static byte[] GetUnscaledDecimalValue(decimal value, out int scale)
         {
-            var buffer = new byte[12];
+            var buffer = new byte[13];
             var valBits = decimal.GetBits(value);
 
             buffer[0] = (byte)valBits[0];
@@ -172,6 +172,20 @@ namespace Avro.Util
             scale = (int)((valBits[3] & ~Int32.MinValue) >> 16);
 
             return buffer;
+        }
+
+        private static int[] GetDecimalComponents(byte[] buffer)
+        {
+            var bufferIndexes = BitConverter.IsLittleEndian
+                ? new int[] { 0, 4, 8 }
+                : new int[] { 8, 4, 0 };
+
+            return new int[]
+            {
+                BitConverter.ToInt32(buffer, bufferIndexes[0]),
+                BitConverter.ToInt32(buffer, bufferIndexes[1]),
+                BitConverter.ToInt32(buffer, bufferIndexes[2])
+            };
         }
     }
 }

@@ -44,6 +44,21 @@ namespace Avro.Test
         }
 
         [TestCase]
+        public void TestDecimalMinMax()
+        {
+            var schema = (LogicalSchema)Schema.Parse("{\"type\": \"bytes\", \"logicalType\": \"decimal\", \"precision\": 4, \"scale\": 0 }");
+
+            var avroDecimal = new Avro.Util.Decimal();
+
+            foreach (var decimalVal in new decimal[] { decimal.MinValue, decimal.MaxValue })
+            {
+                var convertedDecimalVal = (decimal)avroDecimal.ConvertToLogicalValue(avroDecimal.ConvertToBaseValue(decimalVal, schema), schema);
+
+                Assert.AreEqual(decimalVal, convertedDecimalVal);
+            }
+        }
+
+        [TestCase]
         public void TestDecimalOutOfRangeException()
         {
             var schema = (LogicalSchema)Schema.Parse("{\"type\": \"bytes\", \"logicalType\": \"decimal\", \"precision\": 4, \"scale\": 2 }");
