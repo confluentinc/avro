@@ -1,4 +1,4 @@
-﻿<!--
+<!--
    Licensed to the Apache Software Foundation (ASF) under one or more
    contributor license agreements.  See the NOTICE file distributed with
    this work for additional information regarding copyright ownership.
@@ -25,7 +25,7 @@
     <PackageId>Confluent.Apache.Avro.AvroGen</PackageId>
     <Title>Confluent.Apache.Avro.AvroGen</Title>
     <AssemblyName>avrogen</AssemblyName>
-    <VersionPrefix>1.7.7.6</VersionPrefix>
+    <VersionPrefix>1.7.7.7</VersionPrefix>
     <TargetFramework>netcoreapp2.1</TargetFramework>
     <OutputType>Exe</OutputType>
     <PackAsTool>true</PackAsTool>
