@@ -57,3 +57,5 @@ obj
 
 #MacOS
 .DS_Store
+
+.vs/
