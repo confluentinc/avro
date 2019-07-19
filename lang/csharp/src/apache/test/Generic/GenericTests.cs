@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -141,13 +141,15 @@ namespace Avro.Test.Generic
         [TestCase()]
         public void TestLogical_Decimal_Bytes()
         {
-            test("{\"type\": \"bytes\", \"logicalType\": \"decimal\"}", 12345678912345.55M);
+            test("{\"type\": \"bytes\", \"logicalType\": \"decimal\", \"precision\": 30, \"scale\": 2}",
+                (AvroDecimal)12345678912345.55M);
         }
 
         [TestCase()]
         public void TestLogical_Decimal_Fixed()
         {
-            test("{\"type\": {\"type\": \"fixed\", \"size\": 16, \"name\": \"n\"}, \"logicalType\": \"decimal\"}", 12345678912345.55M);
+            test("{\"type\": {\"type\": \"fixed\", \"size\": 16, \"name\": \"n\"}, \"logicalType\": \"decimal\", \"precision\": 30, \"scale\": 2}",
+                (AvroDecimal)12345678912345.55M);
         }
 
         [TestCase("[{\"type\":\"record\", \"name\":\"n\", \"fields\":[{\"name\":\"f1\", \"type\":\"string\"}]}, \"string\"]",

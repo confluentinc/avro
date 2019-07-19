@@ -56,7 +56,7 @@ namespace Avro.Util
             if (precision <= 0)
                 throw new AvroTypeException("'decimal' requires a 'precision' property that is greater than zero");
 
-            var scale = GetLogicalScale(schema);
+            var scale = GetIntPropertyValueFromSchema(schema, "scale");
 
             if (scale < 0 || scale > precision)
                 throw new AvroTypeException("'decimal' requires a 'scale' property that is zero or less than or equal to 'precision'");
@@ -70,22 +70,37 @@ namespace Avro.Util
         /// <returns>An object representing the encoded value of the base type.</returns>        
         public override object ConvertToBaseValue(object logicalValue, LogicalSchema schema)
         {
-            var decimalValue = (decimal)logicalValue;
-            var unscaledInt = new BigInteger(GetUnscaledDecimalValue(decimalValue, out int scale));
+            var decimalValue = (AvroDecimal)logicalValue;
+            var logicalScale = GetIntPropertyValueFromSchema(schema, "scale");
+            var scale = decimalValue.Scale;
 
-            if (scale != GetLogicalScale(schema))
-                throw new ArgumentOutOfRangeException("logicalValue", $"The decimal value has a scale of {scale} which cannot be encoded against a logical 'decimal' with a scale of {GetLogicalScale(schema)}");
+            if (scale != logicalScale)
+                throw new ArgumentOutOfRangeException("logicalValue", $"The decimal value has a scale of {scale} which cannot be encoded against a logical 'decimal' with a scale of {logicalScale}");
 
-            if (decimalValue < 0)
-                unscaledInt = BigInteger.Negate(unscaledInt);
+            var buffer = decimalValue.UnscaledValue.ToByteArray();
 
-            var buffer = unscaledInt.ToByteArray();
-
-            Array.Reverse(buffer); // Make the sequence of bytes big-endian
+            Array.Reverse(buffer);
 
             return Schema.Type.Bytes == schema.BaseSchema.Tag
                 ? (object)buffer
-                : (object)new GenericFixed((FixedSchema)schema.BaseSchema, buffer);
+                : (object)new GenericFixed(
+                    (FixedSchema)schema.BaseSchema,
+                    GetDecimalFixedByteArray(buffer, ((FixedSchema)schema.BaseSchema).Size,
+                    decimalValue.Sign < 0 ? (byte)0xFF : (byte)0x00));
+        }
+
+        private static byte[] GetDecimalFixedByteArray(byte[] sourceBuffer, int size, byte fillValue)
+        {
+            var paddedBuffer = new byte[size];
+
+            var offset = size - sourceBuffer.Length;
+
+            for (var idx = 0; idx < size; idx++)
+            {
+                paddedBuffer[idx] = idx < offset ? fillValue : sourceBuffer[idx - offset];
+            }
+
+            return paddedBuffer;
         }
 
         /// <summary>
@@ -100,27 +115,9 @@ namespace Avro.Util
                 ? (byte[])baseValue
                 : ((GenericFixed)baseValue).Value;
 
-            Array.Reverse(buffer); // Make the sequence of bytes little-endian
+            Array.Reverse(buffer);
 
-            var unscaledInt = new BigInteger(buffer);
-            var isNegative = unscaledInt < 0;
-
-            var absUnscaledInt = BigInteger.Abs(unscaledInt);
-
-            buffer = absUnscaledInt.ToByteArray();
-
-            Console.WriteLine($">> {buffer.Length}");
-
-            if (buffer.Length > 13)
-                throw new AvroException("Unable to create 'decimal' value. The buffer being read is too large.");
-
-            var paddedBuffer = new byte[13];
-
-            Buffer.BlockCopy(buffer, 0, paddedBuffer, 0, Math.Min(buffer.Length, 13));
-
-            var valBits = GetDecimalComponents(paddedBuffer);
-
-            return new decimal(valBits[0], valBits[1], valBits[2], isNegative, (byte)GetLogicalScale(schema));
+            return new AvroDecimal(new BigInteger(buffer), GetIntPropertyValueFromSchema(schema, "scale"));
         }
 
         /// <summary>
@@ -129,7 +126,7 @@ namespace Avro.Util
         /// <param name="nullible">A flag indicating whether it should be nullible.</param>
         public override string GetCSharpTypeName(bool nullible)
         {
-            var typeName = typeof(decimal).ToString();
+            var typeName = typeof(AvroDecimal).ToString();
             return nullible ? "System.Nullable<" + typeName + ">" : typeName;
         }
 
@@ -139,53 +136,14 @@ namespace Avro.Util
         /// <param name="logicalValue">The logical value to test.</param>
         public override bool IsInstanceOfLogicalType(object logicalValue)
         {
-            return logicalValue is decimal;
+            return logicalValue is AvroDecimal;
         }
 
-        private static int GetLogicalScale(LogicalSchema schema)
+        private static int GetIntPropertyValueFromSchema(Schema schema, string propertyName, int defaultVal = 0)
         {
-            var scaleVal = schema.GetProperty("scale");
+            var scaleVal = schema.GetProperty(propertyName);
 
-            return string.IsNullOrEmpty(scaleVal) ? 0 : int.Parse(scaleVal);
-        }
-
-        private static byte[] GetUnscaledDecimalValue(decimal value, out int scale)
-        {
-            var buffer = new byte[13];
-            var valBits = decimal.GetBits(value);
-
-            buffer[0] = (byte)valBits[0];
-            buffer[1] = (byte)(valBits[0] >> 8);
-            buffer[2] = (byte)(valBits[0] >> 16);
-            buffer[3] = (byte)(valBits[0] >> 24);
-
-            buffer[4] = (byte)valBits[1];
-            buffer[5] = (byte)(valBits[1] >> 8);
-            buffer[6] = (byte)(valBits[1] >> 16);
-            buffer[7] = (byte)(valBits[1] >> 24);
-
-            buffer[8] = (byte)valBits[2];
-            buffer[9] = (byte)(valBits[2] >> 8);
-            buffer[10] = (byte)(valBits[2] >> 16);
-            buffer[11] = (byte)(valBits[2] >> 24);
-
-            scale = (int)((valBits[3] & ~Int32.MinValue) >> 16);
-
-            return buffer;
-        }
-
-        private static int[] GetDecimalComponents(byte[] buffer)
-        {
-            var bufferIndexes = BitConverter.IsLittleEndian
-                ? new int[] { 0, 4, 8 }
-                : new int[] { 8, 4, 0 };
-
-            return new int[]
-            {
-                BitConverter.ToInt32(buffer, bufferIndexes[0]),
-                BitConverter.ToInt32(buffer, bufferIndexes[1]),
-                BitConverter.ToInt32(buffer, bufferIndexes[2])
-            };
+            return string.IsNullOrEmpty(scaleVal) ? defaultVal : int.Parse(scaleVal);
         }
     }
 }

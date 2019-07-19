@@ -36,9 +36,9 @@ namespace Avro.Test
             var schema = (LogicalSchema)Schema.Parse("{\"type\": \"bytes\", \"logicalType\": \"decimal\", \"precision\": 4, \"scale\": 2 }");
 
             var avroDecimal = new Avro.Util.Decimal();
-            var decimalVal = decimal.Parse(s);
+            var decimalVal = (AvroDecimal)decimal.Parse(s);
 
-            var convertedDecimalVal = (decimal)avroDecimal.ConvertToLogicalValue(avroDecimal.ConvertToBaseValue(decimalVal, schema), schema);
+            var convertedDecimalVal = (AvroDecimal)avroDecimal.ConvertToLogicalValue(avroDecimal.ConvertToBaseValue(decimalVal, schema), schema);
 
             Assert.AreEqual(decimalVal, convertedDecimalVal);
         }
@@ -50,9 +50,9 @@ namespace Avro.Test
 
             var avroDecimal = new Avro.Util.Decimal();
 
-            foreach (var decimalVal in new decimal[] { decimal.MinValue, decimal.MaxValue })
+            foreach (var decimalVal in new AvroDecimal[] { decimal.MinValue, decimal.MaxValue })
             {
-                var convertedDecimalVal = (decimal)avroDecimal.ConvertToLogicalValue(avroDecimal.ConvertToBaseValue(decimalVal, schema), schema);
+                var convertedDecimalVal = (AvroDecimal)avroDecimal.ConvertToLogicalValue(avroDecimal.ConvertToBaseValue(decimalVal, schema), schema);
 
                 Assert.AreEqual(decimalVal, convertedDecimalVal);
             }
@@ -64,7 +64,7 @@ namespace Avro.Test
             var schema = (LogicalSchema)Schema.Parse("{\"type\": \"bytes\", \"logicalType\": \"decimal\", \"precision\": 4, \"scale\": 2 }");
 
             var avroDecimal = new Avro.Util.Decimal();
-            var decimalVal = 1234.567M; // scale of 3 should throw ArgumentOutOfRangeException
+            var decimalVal = (AvroDecimal)1234.567M; // scale of 3 should throw ArgumentOutOfRangeException
 
             Assert.Throws<ArgumentOutOfRangeException>(() => avroDecimal.ConvertToBaseValue(decimalVal, schema));
         }
