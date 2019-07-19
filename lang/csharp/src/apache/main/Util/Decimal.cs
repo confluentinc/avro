@@ -79,7 +79,10 @@ namespace Avro.Util
 
             var buffer = decimalValue.UnscaledValue.ToByteArray();
 
-            Array.Reverse(buffer);
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(buffer);
+            }
 
             return Schema.Type.Bytes == schema.BaseSchema.Tag
                 ? (object)buffer
@@ -115,7 +118,10 @@ namespace Avro.Util
                 ? (byte[])baseValue
                 : ((GenericFixed)baseValue).Value;
 
-            Array.Reverse(buffer);
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(buffer);
+            }
 
             return new AvroDecimal(new BigInteger(buffer), GetIntPropertyValueFromSchema(schema, "scale"));
         }
